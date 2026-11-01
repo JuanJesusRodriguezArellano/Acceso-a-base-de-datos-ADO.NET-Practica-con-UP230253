@@ -36,7 +36,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "ProductosAPI v1");
-        options.DocumentTitle = "ProductosAPI - Móvil ISC09C | UP230253";
+        options.DocumentTitle = "ProductosAPI - Móvil ISC09C | Juan Jesus Rodriguez Arellano UP230253";
         options.HeadContent = """
             <style>
                 body { margin: 0; }
@@ -47,7 +47,7 @@ if (app.Environment.IsDevelopment())
                 .swagger-ui .topbar .wrapper { display: flex; align-items: center; }
                 .swagger-ui .topbar a { font-size: 0; }
                 .swagger-ui .topbar .wrapper::before {
-                    content: "ProductosAPI — Móvil ISC09C | UP230253";
+                    content: "ProductosAPI — Juan Jesus Rodriguez Arellano | UP230253";
                     color: #e94560;
                     font-size: 20px;
                     font-weight: 700;
@@ -86,7 +86,7 @@ app.MapGet("/", () => Results.Content("""
     <head>
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-        <title>ProductosAPI - Móvil ISC09C | UP230253</title>
+        <title>ProductosAPI - Juan Jesus Rodriguez Arellano | UP230253</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -127,7 +127,7 @@ app.MapGet("/", () => Results.Content("""
     </head>
     <body>
         <div class="card">
-            <div class="badge">UP230253</div>
+            <div class="badge">Juan Jesus Rodriguez Arellano — UP230253</div>
             <h1>ProductosAPI</h1>
             <p class="sub">Móvil ISC09C — Prof. Marco Ulises Padilla Galván</p>
             <p style="color:#ccc;font-size:14px;line-height:1.6">

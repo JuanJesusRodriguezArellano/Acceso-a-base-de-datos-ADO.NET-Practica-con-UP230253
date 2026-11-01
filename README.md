@@ -1,4 +1,4 @@
-# Acceso a Base de Datos con ADO.NET — Práctica UP230253
+# Acceso a Base de Datos con ADO.NET — Juan Jesus Rodriguez Arellano (UP230253)
 
 Hice esta API para la práctica de la materia. Básicamente es un CRUD de productos que se conecta a MySQL usando **ADO.NET puro**, o sea, sin Entity Framework ni nada de eso. Todo el SQL lo escribo yo directamente con `MySqlCommand` y parámetros.
 
@@ -131,4 +131,4 @@ Después abres **http://localhost:5135/swagger** y desde ahí puedes probar todo
 
 **Materia:** Móvil ISC09C  
 **Profesor:** Marco Ulises Padilla Galván  
-**Alumno:** UP230253
+**Alumno:** Juan Jesus Rodriguez Arellano — UP230253
