@@ -36,7 +36,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "ProductosAPI v1");
-        options.DocumentTitle = "ProductosAPI - ADO.NET con MySQL | UP230253";
+        options.DocumentTitle = "ProductosAPI - Móvil ISC09C | UP230253";
         options.HeadContent = """
             <style>
                 body { margin: 0; }
@@ -47,7 +47,7 @@ if (app.Environment.IsDevelopment())
                 .swagger-ui .topbar .wrapper { display: flex; align-items: center; }
                 .swagger-ui .topbar a { font-size: 0; }
                 .swagger-ui .topbar .wrapper::before {
-                    content: "ProductosAPI — ADO.NET + MySQL | UP230253";
+                    content: "ProductosAPI — Móvil ISC09C | UP230253";
                     color: #e94560;
                     font-size: 20px;
                     font-weight: 700;
@@ -55,7 +55,7 @@ if (app.Environment.IsDevelopment())
                     letter-spacing: 0.5px;
                 }
                 .swagger-ui .topbar .wrapper::after {
-                    content: "CRUD con Inyección de Dependencias y Repositorio";
+                    content: "Prof. Marco Ulises Padilla Galván — CRUD con ADO.NET";
                     color: #a8a8b3;
                     font-size: 13px;
                     margin-left: 18px;
@@ -86,7 +86,7 @@ app.MapGet("/", () => Results.Content("""
     <head>
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1"/>
-        <title>ProductosAPI - ADO.NET | UP230253</title>
+        <title>ProductosAPI - Móvil ISC09C | UP230253</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -129,7 +129,7 @@ app.MapGet("/", () => Results.Content("""
         <div class="card">
             <div class="badge">UP230253</div>
             <h1>ProductosAPI</h1>
-            <p class="sub">Acceso a Base de Datos con ADO.NET y MySQL</p>
+            <p class="sub">Móvil ISC09C — Prof. Marco Ulises Padilla Galván</p>
             <p style="color:#ccc;font-size:14px;line-height:1.6">
                 API REST para administrar productos usando <strong>ADO.NET puro</strong>
                 con patrón Repositorio, inyección de dependencias y MySQL.
@@ -146,7 +146,7 @@ app.MapGet("/", () => Results.Content("""
                 <span>Swagger</span>
                 <span>Minimal API</span>
             </div>
-            <p class="footer">Práctica de Acceso a Base de Datos — ISC09C</p>
+            <p class="footer">Móvil ISC09C — Prof. Marco Ulises Padilla Galván</p>
         </div>
     </body>
     </html>

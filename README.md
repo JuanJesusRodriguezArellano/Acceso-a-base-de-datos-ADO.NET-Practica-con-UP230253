@@ -1,67 +1,77 @@
-# Acceso a Base de Datos ADO.NET — Práctica UP230253
+# Acceso a Base de Datos con ADO.NET — Práctica UP230253
 
-API REST para administrar productos usando **ADO.NET puro** con MySQL, sin ORM (sin Entity Framework). Desarrollada con .NET 10 Minimal API.
+Hice esta API para la práctica de la materia. Básicamente es un CRUD de productos que se conecta a MySQL usando **ADO.NET puro**, o sea, sin Entity Framework ni nada de eso. Todo el SQL lo escribo yo directamente con `MySqlCommand` y parámetros.
 
----
-
-## Descripción del Flujo y Métodos
-
-La aplicación sigue una arquitectura en capas donde cada parte tiene una responsabilidad clara:
-
-### Conexión (`Data/ConexionDb.cs`)
-La clase `ConexionDb` implementa la interfaz `IConexionDb` y se encarga de crear objetos `MySqlConnection` a partir de la cadena de conexión que viene de `appsettings.json`. No abre la conexión directamente — la entrega cerrada para que cada método del repositorio la abra y cierre con `using`, aprovechando el connection pooling que ADO.NET maneja internamente. El método `ProbarConexion()` abre y cierra una conexión de prueba para verificar que MySQL está respondiendo.
-
-### Modelo (`Models/Producto.cs`)
-La clase `Producto` mapea una fila de la tabla `productos` en MySQL. Cada propiedad corresponde a una columna: `Id` (auto-increment), `Nombre`, `Descripcion`, `Categoria`, `Precio` (decimal para evitar errores de redondeo con dinero), `Stock`, `Activo` (para dar de baja sin borrar) y `FechaRegistro` (la pone MySQL automáticamente).
-
-### Repositorio (`Repositories/ProductoRepository.cs`)
-Es la clase central del proyecto. Implementa las interfaces `IProductoRepository` e `IProductoBusqueda` y es la **única clase que escribe SQL**. Todos los métodos siguen la misma receta de ADO.NET:
-
-1. Pedir una `MySqlConnection` a `IConexionDb` y abrirla con `.Open()`
-2. Crear un `MySqlCommand` con la sentencia SQL correspondiente
-3. Agregar los valores como **parámetros** (`@nombre`, `@id`, etc.) con `AddWithValue()` — nunca se concatenan valores del usuario dentro del SQL, lo que previene inyección SQL
-4. Ejecutar con el método apropiado:
-   - **`ExecuteReader()`** para SELECT → devuelve filas que se recorren con `while (lector.Read())`
-   - **`ExecuteScalar()`** para obtener un solo valor → el ID generado tras un INSERT
-   - **`ExecuteNonQuery()`** para UPDATE/DELETE → devuelve cuántas filas fueron afectadas
-5. Todo se libera automáticamente con `using` al salir del método
-
-**Métodos CRUD implementados:**
-
-| Método | Operación SQL | Qué hace |
-|--------|--------------|----------|
-| `ObtenerTodos()` | `SELECT` | Devuelve todos los productos ordenados por ID |
-| `ObtenerPorId(id)` | `SELECT WHERE id = @id` | Busca un producto por su llave primaria, devuelve null si no existe |
-| `Insertar(producto)` | `INSERT` + `SELECT LAST_INSERT_ID()` | Crea un registro y devuelve el ID que MySQL generó |
-| `Actualizar(producto)` | `UPDATE SET ... WHERE id = @id` | Modifica los datos, devuelve true/false según si existía |
-| `Eliminar(id)` | `DELETE WHERE id = @id` | Borra el registro, devuelve true/false según si existía |
-| `Buscar(filtros)` | `SELECT` dinámico con `WHERE 1=1 AND ...` | Filtra por nombre (parcial), categoría, rango de precio o estado activo |
-
-### Endpoints (`Endpoints/ProductosEndpoints.cs`)
-Mapea cada ruta HTTP a un método del repositorio:
-
-| Ruta | HTTP | Operación | Respuestas |
-|------|------|-----------|------------|
-| `GET /productos` | GET | Listar todos | 200 |
-| `GET /productos/{id}` | GET | Obtener por ID | 200 / 404 |
-| `GET /productos/buscar` | GET | Búsqueda con filtros | 200 / 400 |
-| `POST /productos` | POST | Crear nuevo | 201 / 400 |
-| `PUT /productos/{id}` | PUT | Actualizar existente | 204 / 400 / 404 |
-| `DELETE /productos/{id}` | DELETE | Eliminar | 204 / 404 |
-
-### Inyección de Dependencias (`Program.cs`)
-Se registran en el contenedor de .NET:
-- `IConexionDb` → `ConexionDb` como **Singleton** (solo guarda la cadena de conexión)
-- `IProductoRepository` e `IProductoBusqueda` → `ProductoRepository` como **Scoped** (uno nuevo por petición HTTP)
-
-Así los endpoints dependen de interfaces, no de clases concretas, y se podría cambiar MySQL por otro motor sin tocar los endpoints.
-
-### Inicialización Automática (`Data/InicializadorDb.cs`)
-Al arrancar, crea la base de datos `productos_db`, la tabla `productos` y 5 registros de ejemplo si la tabla está vacía. Si MySQL no está disponible, la API arranca igual pero avisa en consola.
+La idea era demostrar cómo funciona la conexión a base de datos, las consultas, inserts, updates y deletes usando el patrón repositorio con inyección de dependencias.
 
 ---
 
-## Interface Implementada
+## Cómo está organizado el proyecto
+
+Lo dividí en capas para que cada parte haga una sola cosa:
+
+### La conexión — `Data/ConexionDb.cs`
+
+Aquí es donde se crea la conexión a MySQL. La clase `ConexionDb` lee la cadena de conexión del archivo `appsettings.json` y cuando alguien necesita hablar con la base de datos, le da un objeto `MySqlConnection` listo para usarse. No la abre ella, sino que el que la pide la abre con `.Open()` y cuando termina se cierra sola gracias al `using`. Esto funciona bien porque ADO.NET tiene un pool de conexiones interno, entonces abrir y cerrar no es lento, en realidad se reutilizan.
+
+También tiene un método `ProbarConexion()` que sirve para checar si MySQL está prendido y respondiendo — es lo que usa el endpoint `GET /conexion`.
+
+### El modelo — `Models/Producto.cs`
+
+Es la clase que representa un producto. Tiene las propiedades `Id`, `Nombre`, `Descripcion`, `Categoria`, `Precio` (lo puse como decimal porque con double se pierden centavos), `Stock`, `Activo` (para poder desactivar productos sin borrarlos) y `FechaRegistro` que la pone MySQL solo con `CURRENT_TIMESTAMP`.
+
+### El repositorio — `Repositories/ProductoRepository.cs`
+
+Esta es la clase más importante del proyecto. Implementa `IProductoRepository` y `IProductoBusqueda`, y es la **única parte que toca SQL**. Los endpoints nunca ven una sentencia SQL.
+
+Todos los métodos hacen más o menos lo mismo:
+
+1. Le pido una conexión a `IConexionDb` y la abro
+2. Armo un `MySqlCommand` con el SQL que necesito
+3. Los valores los paso como **parámetros** (`@nombre`, `@precio`, etc.) para que no haya riesgo de inyección SQL — nunca concateno lo que manda el usuario dentro del string del SQL
+4. Ejecuto con el método que toque:
+   - `ExecuteReader()` cuando necesito leer filas (los SELECT)
+   - `ExecuteScalar()` cuando solo quiero un valor (como el ID nuevo después de un INSERT)
+   - `ExecuteNonQuery()` cuando solo me importa cuántas filas se afectaron (UPDATE y DELETE)
+5. El `using` se encarga de cerrar todo al salir
+
+Los métodos que tiene son:
+
+- **`ObtenerTodos()`** — hace un `SELECT` de toda la tabla y regresa una lista
+- **`ObtenerPorId(id)`** — busca un producto por su ID, si no existe regresa `null`
+- **`Insertar(producto)`** — mete un registro nuevo y con `LAST_INSERT_ID()` saca el ID que MySQL le asignó
+- **`Actualizar(producto)`** — hace un `UPDATE` y si no encuentra el ID regresa `false`
+- **`Eliminar(id)`** — hace un `DELETE`, igual regresa `true` o `false` según si existía
+- **`Buscar(filtros)`** — arma un `SELECT` dinámico dependiendo de qué filtros le llegaron (nombre, categoría, precio mín/máx, activo). Usa el truco de `WHERE 1=1` para ir pegando `AND` sin preocuparse de cuál es el primero
+
+### Los endpoints — `Endpoints/ProductosEndpoints.cs`
+
+Aquí se definen las rutas de la API. Cada endpoint recibe la petición, valida lo básico (que el nombre no esté vacío, que el precio no sea negativo, etc.) y llama al repositorio. Después traduce el resultado a un código HTTP:
+
+| Ruta | Verbo | Qué hace | Respuestas |
+|------|-------|----------|------------|
+| `GET /productos` | GET | Trae todos los productos | 200 |
+| `GET /productos/{id}` | GET | Trae uno por su ID | 200 o 404 |
+| `GET /productos/buscar` | GET | Busca con filtros opcionales | 200 o 400 |
+| `POST /productos` | POST | Crea un producto nuevo | 201 o 400 |
+| `PUT /productos/{id}` | PUT | Actualiza un producto | 204, 400 o 404 |
+| `DELETE /productos/{id}` | DELETE | Borra un producto | 204 o 404 |
+
+### La inyección de dependencias — `Program.cs`
+
+En el archivo principal registro los servicios para que .NET sepa qué clase dar cuando alguien pida una interfaz:
+- `IConexionDb` → `ConexionDb` como **Singleton** (porque solo guarda un string, la cadena de conexión)
+- `IProductoRepository` y `IProductoBusqueda` → `ProductoRepository` como **Scoped** (uno nuevo por cada petición HTTP)
+
+La ventaja de esto es que los endpoints no conocen la clase concreta, solo la interfaz. Si un día quiero cambiar MySQL por SQL Server, solo cambio el repositorio y la conexión, los endpoints ni se enteran.
+
+### La inicialización — `Data/InicializadorDb.cs`
+
+Cuando la API arranca, esta clase se conecta a MySQL y crea la base de datos `productos_db` y la tabla `productos` si no existen. Si la tabla está vacía, mete 5 productos de ejemplo para que haya datos con qué probar. Si MySQL no está prendido, la API arranca igual pero avisa en la consola.
+
+---
+
+## La interfaz que se pidió
 
 ```csharp
 public interface IProductoRepository
@@ -74,51 +84,51 @@ public interface IProductoRepository
 }
 ```
 
+Está implementada tal cual en `ProductoRepository`. Para la búsqueda agregué otra interfaz aparte (`IProductoBusqueda`) en vez de modificar la original.
+
 ---
 
-## Estructura del Proyecto
+## Estructura de archivos
 
 ```
 ProductosAPI/
-├── Program.cs                       ← Arranque, DI, Swagger, rutas
+├── Program.cs                       ← Donde arranca todo
 ├── Models/
-│   └── Producto.cs                  ← Modelo de datos
+│   └── Producto.cs                  ← La clase del producto
 ├── Data/
-│   ├── IConexionDb.cs               ← Interfaz de conexión
-│   ├── ConexionDb.cs                ← Implementación con MySqlConnection
-│   └── InicializadorDb.cs           ← Creación automática de BD y tabla
+│   ├── IConexionDb.cs               ← Interfaz de la conexión
+│   ├── ConexionDb.cs                ← Se conecta a MySQL
+│   └── InicializadorDb.cs           ← Crea la BD y tabla al iniciar
 ├── Repositories/
-│   ├── IProductoRepository.cs       ← Interfaz CRUD (la de la actividad)
-│   ├── IProductoBusqueda.cs         ← Interfaz de búsqueda
-│   └── ProductoRepository.cs        ← Implementación ADO.NET de todo el SQL
+│   ├── IProductoRepository.cs       ← La interfaz de la actividad
+│   ├── IProductoBusqueda.cs         ← Interfaz extra para buscar
+│   └── ProductoRepository.cs        ← Aquí está todo el SQL
 ├── Endpoints/
-│   ├── ProductosEndpoints.cs        ← Rutas HTTP /productos
-│   └── ConexionEndpoints.cs         ← Ruta /conexion
+│   ├── ProductosEndpoints.cs        ← Las rutas de /productos
+│   └── ConexionEndpoints.cs         ← La ruta /conexion
 ├── Database/
-│   └── productos.sql                ← Script SQL alternativo
-├── appsettings.json                 ← Cadena de conexión MySQL
-├── compose.yaml / Dockerfile        ← Docker (API + MySQL)
-└── ProductosAPI.csproj              ← .NET 10 + paquetes NuGet
+│   └── productos.sql                ← Script por si quieres crear la BD a mano
+├── appsettings.json                 ← Cadena de conexión a MySQL
+├── compose.yaml / Dockerfile        ← Para correrlo con Docker
+└── ProductosAPI.csproj              ← Proyecto .NET 10
 ```
 
-## Requisitos
+## Cómo correrlo
 
-- .NET 10 SDK
-- MySQL 8+ (local o con Docker)
-
-## Ejecutar
+Necesitas .NET 10 SDK y MySQL 8 (o Docker).
 
 ```bash
-# Con MySQL local
+# Si ya tienes MySQL instalado
 dotnet run
 
-# Con Docker Compose (incluye MySQL)
+# Si prefieres Docker (levanta MySQL y la API juntos)
 docker compose up --build
 ```
 
-Abrir: **http://localhost:5135/swagger**
+Después abres **http://localhost:5135/swagger** y desde ahí puedes probar todos los endpoints.
 
 ---
 
-**Materia:** ISC09C — Acceso a Base de Datos  
+**Materia:** Móvil ISC09C  
+**Profesor:** Marco Ulises Padilla Galván  
 **Alumno:** UP230253
